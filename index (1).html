@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Streamlit Verification Site</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Streamlit Verification Site</h1>
+        <p>The website will capture a 5-second video of you and send it to a server that will determine whether you are an adult or a teenager. Based on the result, you will be authorized to access the main site or not. The video will be deleted and will not be viewed by anyone. Age recognition is based on AI.</p>
+        <p>To proceed, please click the button below:</p>
+        <a href="#" class="btn" onclick="captureAndSendVideo()">Capture Video</a>
+        <div id="response" style="display: none;">
+            <h2>Server Response:</h2>
+            <p id="responseText"></p>
+        </div>
+    </div>
+
+    <script>
+        function captureAndSendVideo() {
+            // Demander l'autorisation d'accéder à la caméra
+            navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                // Créer un objet MediaRecorder pour enregistrer la vidéo
+                let chunks = [];
+                let recorder = new MediaRecorder(stream);
+
+                // Commencer l'enregistrement
+                recorder.start();
+
+                // Arrêter l'enregistrement après 5 secondes
+                setTimeout(function() {
+                    recorder.stop();
+                    stream.getTracks().forEach(track => track.stop());
+
+                    // Convertir les morceaux en une seule vidéo
+                    let blob = new Blob(chunks, { type: 'video/webm' });
+
+                    // Envoyer la vidéo au serveur WebSocket
+                    sendVideoToServer(blob);
+                }, 5000);
+
+                // Événement déclenché lorsqu'un nouveau morceau de vidéo est disponible
+                recorder.ondataavailable = function(event) {
+                    chunks.push(event.data);
+                };
+            })
+            .catch(function(error) {
+                console.error('Erreur lors de l\'accès à la caméra :', error);
+            });
+        }
+
+        function sendVideoToServer(videoBlob) {
+            // Connexion au serveur WebSocket
+            const socket = new WebSocket('ws://localhost:8765');
+
+            // Événement déclenché lorsque la connexion est établie
+            socket.onopen = function(event) {
+                console.log('Connexion WebSocket établie.');
+
+                // Envoyer la vidéo au serveur
+                socket.send(videoBlob);
+            };
+
+            // Événement déclenché lorsqu'un message est reçu du serveur
+            socket.onmessage = function(event) {
+                // Afficher la réponse du serveur
+                document.getElementById('responseText').textContent = event.data;
+                document.getElementById('response').style.display = 'block';
+            };
+
+            // Événement déclenché en cas d'erreur de connexion
+            socket.onerror = function(event) {
+                console.error('Erreur de connexion WebSocket:', event);
+            };
+
+            // Événement déclenché lorsque la connexion est fermée
+            socket.onclose = function(event) {
+                console.log('Connexion WebSocket fermée.');
+            };
+        }
+    </script>
+</body>
+</html>
